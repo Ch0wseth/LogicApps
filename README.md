@@ -190,7 +190,7 @@ AzureDiagnostics
    - Vérifiez l'URL du trigger
    - Contrôlez les paramètres de sécurité
 
-## � Structure finale (minimaliste)
+## � Structure
 
 ```
 LogicApps/
