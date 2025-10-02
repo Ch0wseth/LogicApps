@@ -32,7 +32,6 @@ env:
   LOCATION: 'France Central'
 
 permissions:
-  id-token: write   # Required for OIDC authentication
   contents: read    # Required to read repository contents
 
 jobs:
@@ -68,12 +67,10 @@ jobs:
         echo "🎯 Target Environment: ${ENVIRONMENT}"
         echo "📦 Resource Group: ${RESOURCE_GROUP}"
 
-    - name: 🔐 Azure Login (OIDC)
+    - name: 🔐 Azure Login (Service Principal)
       uses: azure/login@v2
       with:
-        client-id: ${{ secrets.AZURE_CLIENT_ID }}
-        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
 
     - name: 🧪 Install Bicep CLI
       run: |
@@ -202,12 +199,10 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
-    - name: 🔐 Azure Login (OIDC)
+    - name: 🔐 Azure Login (Service Principal)
       uses: azure/login@v2
       with:
-        client-id: ${{ secrets.AZURE_CLIENT_ID }}
-        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
 
     - name: 🔍 Check Logic App status
       run: |

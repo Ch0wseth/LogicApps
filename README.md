@@ -59,7 +59,7 @@ Le projet inclut un pipeline GitHub Actions complet pour automatiser les déploi
 - ✅ **Tests post-déploiement** de la Logic App
 - ✅ **Environments GitHub** (dev/staging/prod)
 - ✅ **Commentaires PR** avec résultats de validation
-- ✅ **OIDC Authentication** (plus sécurisé)
+- ✅ **Service Principal Authentication** (sécurisé)
 
 #### 🔧 Déclencheurs
 
@@ -294,5 +294,6 @@ Invoke-RestMethod -Uri $url -Method Post -Body '{"message":"Hello!"}' -ContentTy
 ```
 
 ✅ **C'est tout !** Template ultra-minimaliste (4 fichiers) prêt pour le déploiement avec monitoring complet.
-#   P i p e l i n e   t e s t   1 0 / 0 2 / 2 0 2 5   1 1 : 2 0 : 0 5  
+#   P i p e l i n e   t e s t   1 0 / 0 2 / 2 0 2 5   1 1 : 2 0 : 0 5 
+ 
  
