@@ -43,3 +43,11 @@ yarn-error.log*
 .cache/
 dist/
 build/
+
+# GitHub Actions
+.github/workflows/test-*.yml
+whatif-output.txt
+
+# Bicep generated
+*.json
+!*.bicepparam

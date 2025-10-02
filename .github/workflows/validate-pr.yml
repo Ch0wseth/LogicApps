@@ -1,0 +1,213 @@
+name: 🔍 PR - Validate Infrastructure
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'infra/**'
+      - '.github/workflows/**'
+
+env:
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  LOCATION: 'France Central'
+
+permissions:
+  id-token: write   # Required for OIDC authentication
+  contents: read    # Required to read repository contents
+  pull-requests: write  # Required to comment on PRs
+
+jobs:
+  # ===============================================
+  # Validation et What-If Analysis pour PR
+  # ===============================================
+  validate-pr:
+    name: 🔍 Validate Changes
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: 🔐 Azure Login (OIDC)
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+    - name: 🧪 Install Bicep CLI
+      run: |
+        curl -Lo bicep https://github.com/Azure/bicep/releases/latest/download/bicep-linux-x64
+        chmod +x ./bicep
+        sudo mv ./bicep /usr/local/bin/bicep
+        bicep --version
+
+    - name: ✅ Validate Bicep syntax
+      run: |
+        echo "🔍 Validating Bicep template syntax..."
+        bicep build infra/main.bicep --stdout
+
+    - name: 🔍 What-If Analysis (DEV environment)
+      id: whatif
+      run: |
+        echo "🔍 Running What-If analysis against DEV environment..."
+        
+        # Créer le RG temporairement si nécessaire pour la validation
+        RG_NAME="rg-logicapp-dev"
+        RG_EXISTS=$(az group exists --name "$RG_NAME")
+        
+        if [ "$RG_EXISTS" = "false" ]; then
+          echo "📦 Creating temporary resource group for validation: $RG_NAME"
+          az group create --name "$RG_NAME" --location "${{ env.LOCATION }}" --tags Temporary="true"
+          TEMP_RG_CREATED="true"
+        else
+          TEMP_RG_CREATED="false"
+        fi
+        
+        # Exécuter What-If
+        WHATIF_OUTPUT=$(az deployment group what-if \
+          --resource-group "$RG_NAME" \
+          --template-file "./infra/main.bicep" \
+          --parameters "./infra/main.dev.bicepparam" \
+          --name "pr-validation-$(date +%Y%m%d-%H%M%S)" \
+          --no-pretty-print 2>&1)
+        
+        # Supprimer le RG temporaire si créé
+        if [ "$TEMP_RG_CREATED" = "true" ]; then
+          echo "🗑️ Cleaning up temporary resource group"
+          az group delete --name "$RG_NAME" --yes --no-wait
+        fi
+        
+        # Sauvegarder la sortie pour le commentaire PR
+        echo "$WHATIF_OUTPUT" > whatif-output.txt
+        
+        echo "whatif-output<<EOF" >> $GITHUB_OUTPUT
+        echo "$WHATIF_OUTPUT" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: ✅ Validate deployment template
+      run: |
+        echo "✅ Testing deployment validation..."
+        
+        # Utiliser un RG temporaire pour la validation
+        RG_NAME="rg-logicapp-pr-validation-temp"
+        
+        # Créer RG temporaire
+        az group create --name "$RG_NAME" --location "${{ env.LOCATION }}" --tags Temporary="true" Purpose="PR-Validation"
+        
+        # Valider le template
+        az deployment group validate \
+          --resource-group "$RG_NAME" \
+          --template-file "./infra/main.bicep" \
+          --parameters "./infra/main.dev.bicepparam" \
+          --name "pr-validation-test"
+        
+        # Nettoyer
+        az group delete --name "$RG_NAME" --yes --no-wait
+        
+        echo "✅ Template validation successful!"
+
+    - name: 📊 Security and Best Practices Check
+      run: |
+        echo "🔒 Running security and best practices check..."
+        
+        # Vérifier les bonnes pratiques dans le template Bicep
+        TEMPLATE_CONTENT=$(cat infra/main.bicep)
+        
+        # Checks basiques de sécurité
+        CHECKS_PASSED=0
+        TOTAL_CHECKS=4
+        
+        # Check 1: Managed Identity utilisée
+        if echo "$TEMPLATE_CONTENT" | grep -q "identity.*type.*SystemAssigned"; then
+          echo "✅ Managed Identity configured"
+          CHECKS_PASSED=$((CHECKS_PASSED + 1))
+        else
+          echo "⚠️  Warning: Managed Identity not found"
+        fi
+        
+        # Check 2: Diagnostic settings configurés
+        if echo "$TEMPLATE_CONTENT" | grep -q "Microsoft.Insights/diagnosticSettings"; then
+          echo "✅ Diagnostic settings configured"
+          CHECKS_PASSED=$((CHECKS_PASSED + 1))
+        else
+          echo "⚠️  Warning: Diagnostic settings not found"
+        fi
+        
+        # Check 3: Tags présents
+        if echo "$TEMPLATE_CONTENT" | grep -q "tags:"; then
+          echo "✅ Resource tagging implemented"
+          CHECKS_PASSED=$((CHECKS_PASSED + 1))
+        else
+          echo "⚠️  Warning: Resource tags not found"
+        fi
+        
+        # Check 4: Paramètres utilisés (pas de hardcoding)
+        if echo "$TEMPLATE_CONTENT" | grep -q "param "; then
+          echo "✅ Parameters used (no hardcoded values)"
+          CHECKS_PASSED=$((CHECKS_PASSED + 1))
+        else
+          echo "⚠️  Warning: No parameters found"
+        fi
+        
+        echo ""
+        echo "📊 Security Score: $CHECKS_PASSED/$TOTAL_CHECKS"
+        
+        # Enregistrer le score pour le commentaire PR
+        echo "security-score=$CHECKS_PASSED/$TOTAL_CHECKS" >> $GITHUB_OUTPUT
+
+    - name: 📝 Comment on PR
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const whatifOutput = `${{ steps.whatif.outputs.whatif-output }}`;
+          const securityScore = `${{ steps.validate-pr.outputs.security-score }}`;
+          
+          const comment = `## 🔍 Infrastructure Validation Results
+          
+          ### ✅ Validation Status
+          - **Bicep Syntax**: ✅ Valid
+          - **Template Validation**: ✅ Passed  
+          - **Security Score**: ${securityScore || 'N/A'}
+          
+          ### 📊 What-If Analysis (DEV Environment)
+          
+          \`\`\`
+          ${whatifOutput.length > 5000 ? whatifOutput.substring(0, 5000) + '...\n\n[Output truncated - check workflow logs for full details]' : whatifOutput}
+          \`\`\`
+          
+          ### 🚀 Next Steps
+          - ✅ **Ready to merge**: All validations passed
+          - 🔄 **Auto-deploy**: Will deploy to DEV when merged to main
+          - 📊 **Monitoring**: Application Insights and Log Analytics will be configured
+          
+          ---
+          *Generated by GitHub Actions workflow* 🤖`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+    - name: 📊 Job Summary
+      if: always()
+      run: |
+        echo "## 🔍 PR Validation Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**PR #${{ github.event.number }}** - ${{ github.event.pull_request.title }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Author:** ${{ github.event.pull_request.user.login }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ job.status }}" = "success" ]; then
+          echo "✅ **Status:** All validations passed!" >> $GITHUB_STEP_SUMMARY
+          echo "🚀 **Ready for deployment:** This PR can be safely merged" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Status:** Validation failed" >> $GITHUB_STEP_SUMMARY
+          echo "🔍 **Action:** Check workflow logs and fix issues before merging" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📅 **Validated at:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY

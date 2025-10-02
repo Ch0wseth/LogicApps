@@ -1,16 +1,24 @@
 # Logic App avec Monitoring - Template Bicep
 
-Ce projet contient un template Bicep complet pour déployer une Azure Logic App avec un système de monitoring avancé.
+[![Deploy Infrastructure](https://github.com/Ch0wseth/LogicApps/actions/workflows/deploy-infrastructure.yml/badge.svg)](https://github.com/Ch0wseth/LogicApps/actions/workflows/deploy-infrastructure.yml)
+[![Validate PR](https://github.com/Ch0wseth/LogicApps/actions/workflows/validate-pr.yml/badge.svg)](https://github.com/Ch0wseth/LogicApps/actions/workflows/validate-pr.yml)
 
-## 📁 Structure fina   - Contrôlez les paramètres de sécurité
+Ce projet contient un template Bicep complet pour déployer une Azure Logic App avec un système de monitoring avancé et un pipeline CI/CD GitHub Actions entièrement automatisé.
 
-## ⚡ DÉPLOIEMENT RAPIDEMENT RAPIDE
+## 📁 Structure du projet
+
+```
 LogicApps/
+├── 📁 .github/
+│   ├── 📁 workflows/
+│   │   ├── deploy-infrastructure.yml  # Pipeline de déploiement principal
+│   │   └── validate-pr.yml           # Validation des Pull Requests
+│   └── SETUP-SECRETS.md              # Guide configuration secrets
 ├── 📁 infra/
-│   ├── main.bicep              # Template Bicep principal
-│   └── main.dev.bicepparam     # Paramètres développement
-├── README.md                   # Cette documentation
-└── .gitignore                  # Exclusions Git
+│   ├── main.bicep                    # Template Bicep principal
+│   └── main.dev.bicepparam           # Paramètres développement
+├── README.md                         # Cette documentation
+└── .gitignore                        # Exclusions Git
 ```
 
 ## 🏗️ Infrastructure
@@ -34,12 +42,43 @@ LogicApps/
 
 ## 🚀 Déploiement
 
-### Prérequis
+### Option 1: 🤖 Pipeline GitHub Actions (Recommandé)
+
+Le projet inclut un pipeline GitHub Actions complet pour automatiser les déploiements.
+
+#### ⚡ Setup rapide
+
+1. **Configurer les secrets Azure** (voir [`.github/SETUP-SECRETS.md`](.github/SETUP-SECRETS.md))
+2. **Push vers `main`** → Déploiement automatique
+3. **Pull Request** → Validation automatique avec What-If
+
+#### 🎯 Fonctionnalités du pipeline
+
+- ✅ **Validation Bicep** automatique
+- ✅ **What-If analysis** avant déploiement  
+- ✅ **Tests post-déploiement** de la Logic App
+- ✅ **Environments GitHub** (dev/staging/prod)
+- ✅ **Commentaires PR** avec résultats de validation
+- ✅ **OIDC Authentication** (plus sécurisé)
+
+#### 🔧 Déclencheurs
+
+```yaml
+# Déploiement automatique
+git push origin main  # → Deploy vers DEV
+
+# Déploiement manuel avec choix d'environnement
+# GitHub → Actions → "Deploy Logic App Infrastructure" → Run workflow
+```
+
+### Option 2: 📋 Déploiement manuel
+
+#### Prérequis
 - Azure CLI ou Azure PowerShell
 - Extension Bicep installée
 - Connexion à un abonnement Azure
 
-### Déploiement avec Azure PowerShell
+#### Déploiement avec Azure PowerShell
 
 ```powershell
 # Connexion à Azure
@@ -149,6 +188,42 @@ Invoke-RestMethod -Uri $triggerUrl -Method Post -Body $body -ContentType "applic
 - ✅ Convention de nommage cohérente
 - ✅ Préfixes par type de ressource
 - ✅ Suffixes par environnement
+
+## 🤖 Pipeline CI/CD
+
+### 🚀 GitHub Actions Workflows
+
+Le projet inclut deux workflows principaux :
+
+#### 1. **Deploy Infrastructure** (`.github/workflows/deploy-infrastructure.yml`)
+- **Déclenchement** : Push vers `main` ou manuel
+- **Jobs** :
+  - 🔍 **Validate** : Syntax Bicep + What-If analysis
+  - 🚀 **Deploy** : Déploiement vers l'environnement cible
+  - 🧪 **Test** : Tests fonctionnels post-déploiement
+  - 📢 **Notify** : Résumé et notifications
+
+#### 2. **PR Validation** (`.github/workflows/validate-pr.yml`)
+- **Déclenchement** : Pull Request vers `main`
+- **Features** :
+  - ✅ Validation syntax Bicep
+  - 🔍 What-If analysis (sans déploiement)
+  - 🔒 Security & best practices check
+  - 💬 Commentaire automatique sur PR
+
+### 🌍 Environnements supportés
+
+| Env | Déclenchement | Protection | Approbation |
+|-----|---------------|------------|-------------|
+| **dev** | Auto (push main) | ❌ Aucune | ❌ Aucune |
+| **staging** | Manuel | ✅ 1 reviewer | ⏱️ 5 min |
+| **prod** | Manuel | ✅ 2 reviewers | ⏱️ 30 min |
+
+### 📋 Setup Pipeline
+
+1. **Configuration secrets** → Voir [`.github/SETUP-SECRETS.md`](.github/SETUP-SECRETS.md)
+2. **Configuration environnements** → Voir [`.github/ENVIRONMENTS.md`](.github/ENVIRONMENTS.md)
+3. **Test pipeline** → Push vers `main`
 
 ## 📈 Surveillance post-déploiement
 
