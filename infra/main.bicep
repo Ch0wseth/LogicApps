@@ -92,8 +92,42 @@ resource logicApp 'Microsoft.Logic/workflows@2019-05-01' = {
   }
   properties: {
     state: 'Enabled'
-    // Définition du workflow chargée depuis src/workflow.json par le script d'automatisation
-    definition: json(loadTextContent('../src/workflow.json')).definition
+    definition: {
+      '$schema': 'https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#'
+      contentVersion: '1.0.0.0'
+      parameters: {}
+      triggers: {
+        manual: {
+          type: 'Request'
+          kind: 'Http'
+          inputs: {
+            schema: {
+              type: 'object'
+              properties: {
+                message: {
+                  type: 'string'
+                }
+              }
+            }
+          }
+        }
+      }
+      actions: {
+        Response: {
+          type: 'Response'
+          kind: 'Http'
+          inputs: {
+            statusCode: 200
+            body: {
+              message: 'Hello from Logic App!'
+              timestamp: '@utcNow()'
+              inputMessage: '@triggerBody()?[\'message\']'
+            }
+          }
+        }
+      }
+      outputs: {}
+    }
     parameters: {}
   }
 }
