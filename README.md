@@ -1,81 +1,78 @@
-# Logic Apps - Workflow Versioning & Testing
+# Logic App - Infrastructure as Code avec GitHub Actions
 
-Système complet pour **versionner**, **tester** et **déployer** des workflows Logic App Azure.
+Template Bicep complet pour déployer une Azure Logic App avec monitoring et pipeline GitHub Actions automatisé.
 
 ## 🚀 Fonctionnalités
 
-- ✅ **Versioning sémantique** des workflows
-- ✅ **Tests automatisés** avec scénarios configurables  
-- ✅ **Déploiement contrôlé** avec confirmation
-- ✅ **Changelog automatique** pour traçabilité
-- ✅ **Infrastructure as Code** avec monitoring complet
+- ✅ **Infrastructure as Code** avec Bicep
+- ✅ **Monitoring complet** (Log Analytics + Application Insights + Alertes)
+- ✅ **Pipeline GitHub Actions** pour déploiement automatique
+- ✅ **Multi-environnements** (dev/prod) avec protection
+- ✅ **Tests automatiques** de la Logic App après déploiement
 
 ## 📁 Structure du projet
 
 ```
 LogicApps/
-├── 📁 infra/              # Infrastructure Bicep
-│   ├── main.bicep         # Template principal avec monitoring
-│   └── main.dev.bicepparam # Paramètres développement
-├── 📁 workflows/          # Versions des workflows
-│   ├── workflow-v1.0.0.json # Version de base
-│   └── workflow-v1.1.0.json # Version avec validation
-├── 📁 tests/              # Tests automatisés
-│   └── test-scenarios.json # Scénarios de test
-├── 📁 scripts/            # Scripts utilitaires
-│   ├── Deploy-Workflow.ps1    # Déploiement
-│   ├── Test-Workflow.ps1      # Tests
-│   └── New-WorkflowVersion.ps1 # Créer nouvelle version
-└── README.md
+├── 📁 .github/workflows/        # Pipeline GitHub Actions
+│   └── deploy.yml               # Déploiement automatique
+├── 📁 infra/                    # Infrastructure Bicep
+│   ├── main.bicep              # Template principal avec monitoring
+│   └── main.dev.bicepparam     # Paramètres développement
+├── � README.md                # Cette documentation
+└── 📄 SETUP-GITHUB-ACTIONS.md  # Guide de configuration
 ```
 
-## 🎯 Workflow de développement
+## 🎯 Déploiement
 
-### 1. Créer une nouvelle version
-```powershell
-# Créer v1.2.0 basée sur la dernière version
-.\scripts\New-WorkflowVersion.ps1 -NewVersion "1.2.0" -Description "Ajout d'une action de validation email" -Changes @("Ajout validation email", "Amélioration gestion erreurs")
+### Option 1: GitHub Actions (Recommandé) 🚀
+1. **Configure Azure & GitHub** : Suis le guide `SETUP-GITHUB-ACTIONS.md`
+2. **Push sur develop** → Déploie automatiquement en DEV
+3. **Push sur main** → Déploie automatiquement en DEV puis PROD
+
+### Option 2: Déploiement manuel 🔧
+```bash
+# Se connecter à Azure
+az login
+az account set --subscription "ton-subscription-id"
+
+# Créer le resource group  
+az group create --name "rg-logicapp-dev" --location "West Europe"
+
+# Déployer l'infrastructure
+cd infra
+az deployment group create \
+  --resource-group "rg-logicapp-dev" \
+  --template-file main.bicep \
+  --parameters @main.dev.bicepparam
 ```
 
-### 2. Modifier le workflow  
-```powershell
-# Éditer le fichier généré
-code .\workflows\workflow-v1.2.0.json
-# → Ajouter tes nouveaux steps dans la section "actions"
+## 🧪 Tester ta Logic App
+
+```bash
+# Récupérer l'URL du trigger
+az rest --method post \
+  --url "https://management.azure.com/subscriptions/SUBSCRIPTION-ID/resourceGroups/rg-logicapp-dev/providers/Microsoft.Logic/workflows/logicapp-webhook-dev/triggers/manual/listCallbackUrl?api-version=2016-06-01" \
+  --query "value"
+
+# Tester avec curl
+curl -X POST "https://prod-xx.westeurope.logic.azure.com/..." \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Hello Logic App!"}'
 ```
 
-### 3. Tester la nouvelle version
-```powershell
-# Tests automatisés
-.\scripts\Test-Workflow.ps1 -ResourceGroupName "rg-logicapp-dev" -LogicAppName "logicapp-webhook-dev" -WorkflowVersion "1.2.0"
-```
+## 📊 Ce que déploie le template
 
-### 4. Déployer
-```powershell  
-# Déploiement avec tests
-.\scripts\Deploy-Workflow.ps1 -ResourceGroupName "rg-logicapp-dev" -LogicAppName "logicapp-webhook-dev" -WorkflowVersion "1.2.0" -RunTests
-```
+### 🎯 Logic App
+- **Workflow simple** : HTTP trigger → Response avec timestamp
+- **Identité managée** pour la sécurité
+- **Configuration optimisée**
 
-## 📊 Versions disponibles
-
-### v1.0.0 - Version de base
-- Trigger HTTP simple
-- Réponse avec timestamp
-- Echo du message d'entrée
-
-### v1.1.0 - Validation et logging  
-- ✅ Validation des inputs
-- ✅ Logging des requêtes
-- ✅ Gestion d'erreurs avec statuts HTTP appropriés
-- ✅ Support de priorité des messages
-
-## 🧪 Tests automatisés
-
-Les tests sont définis dans `tests/test-scenarios.json` et incluent :
-- ✅ Validation des inputs valides/invalides
-- ✅ Vérification des codes de statut HTTP
-- ✅ Validation du format des réponses
-- ✅ Tests de régression entre versions
+### 📊 Monitoring complet
+- **Log Analytics Workspace** - Centralisation des logs
+- **Application Insights** - Télémétrie et performances  
+- **Alertes automatiques** - Notifications en cas d'échec
+- **Workbook personnalisé** - Dashboard de monitoring
 - ✅ **Alerte métrique** - Détection des échecs d'exécution
 - ✅ **Workbook personnalisé** - Dashboard de monitoring
 
