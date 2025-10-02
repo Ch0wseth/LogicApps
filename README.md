@@ -294,3 +294,5 @@ Invoke-RestMethod -Uri $url -Method Post -Body '{"message":"Hello!"}' -ContentTy
 ```
 
 ✅ **C'est tout !** Template ultra-minimaliste (4 fichiers) prêt pour le déploiement avec monitoring complet.
+#   P i p e l i n e   t e s t   1 0 / 0 2 / 2 0 2 5   1 1 : 2 0 : 0 5  
+ 
