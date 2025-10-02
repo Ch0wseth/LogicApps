@@ -75,7 +75,7 @@ jobs:
         
         # Récupérer l'URL du trigger
         TRIGGER_URL=$(az rest --method post \
-          --url "https://management.azure.com/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.AZURE_RESOURCE_GROUP_DEV }}/providers/Microsoft.Logic/workflows/logicapp-webhook-dev/triggers/manual/listCallbackUrl?api-version=2016-06-01" \
+          --url "https://management.azure.com/subscriptions/1358ce15-fec5-4e94-847b-13cd93b106fb/resourceGroups/${{ env.AZURE_RESOURCE_GROUP_DEV }}/providers/Microsoft.Logic/workflows/logicapp-webhook-dev/triggers/manual/listCallbackUrl?api-version=2016-06-01" \
           --query "value" --output tsv)
         
         echo "trigger-url=$TRIGGER_URL" >> $GITHUB_OUTPUT
@@ -140,7 +140,7 @@ jobs:
         
         # Récupérer l'URL du trigger
         TRIGGER_URL=$(az rest --method post \
-          --url "https://management.azure.com/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.AZURE_RESOURCE_GROUP_PROD }}/providers/Microsoft.Logic/workflows/logicapp-webhook-prod/triggers/manual/listCallbackUrl?api-version=2016-06-01" \
+          --url "https://management.azure.com/subscriptions/1358ce15-fec5-4e94-847b-13cd93b106fb/resourceGroups/${{ env.AZURE_RESOURCE_GROUP_PROD }}/providers/Microsoft.Logic/workflows/logicapp-webhook-prod/triggers/manual/listCallbackUrl?api-version=2016-06-01" \
           --query "value" --output tsv)
         
         # Test de production
