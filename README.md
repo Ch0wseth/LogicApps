@@ -383,14 +383,31 @@ Modifier le workflow de ta Logic App **sans redéployer l'infrastructure complè
 #### **1. Modifie le workflow**
 Édite le fichier `workflows/workflow.json` avec tes nouvelles actions.
 
-#### **2. Push tes changements**  
+#### **2. Choisir votre méthode de déploiement**
+
+##### **🚀 Méthode Automatique (Recommandée)**
 ```bash
 git add workflows/workflow.json
 git commit -m "feat: add new action X"
-git push origin develop  # → Met à jour DEV
-# ou
-git push origin main     # → Met à jour DEV puis PROD
+
+# Option A: Mise à jour DÉVELOPPEMENT
+git push origin develop  # → Met à jour DEV uniquement
+
+# Option B: Mise à jour PRODUCTION  
+git push origin main     # → Met à jour PROD uniquement
+
+# Option C: Mise à jour des DEUX environnements
+git push origin develop  # → Met à jour DEV d'abord
+git checkout main
+git merge develop
+git push origin main     # → Met à jour PROD ensuite
 ```
+
+##### **🎛️ Méthode Manuelle (GitHub Actions)**
+1. Allez sur **GitHub → Actions → Update Logic App Workflow**
+2. Cliquez **"Run workflow"**
+3. Choisissez l'environnement : `dev` ou `prod`
+4. Cliquez **"Run workflow"**
 
 #### **3. Le pipeline se déclenche automatiquement** ⚡
 - Valide ton JSON
