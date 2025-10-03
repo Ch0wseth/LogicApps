@@ -55,18 +55,29 @@ LogicApps/
 
 ### **Pipeline CI/CD Automatisé** 🔄
 
-#### **1. Déploiement Infrastructure Complète**
+#### **1. Déploiement Production** 🚀
 ```bash
-git push origin main  # → Déclenche le pipeline complet
+git push origin main  # → Déclenche le déploiement en PRODUCTION
 ```
 **Actions automatiques :**
 - 🔍 Validation Bicep
-- 🏗️ Déploiement infrastructure (Resource Group, Logic App, Monitoring)
+- 🏗️ Déploiement infrastructure PRODUCTION (Resource Group, Logic App, Monitoring)
 - 🧪 Tests post-déploiement
 - 📊 Rapport de déploiement
 
-#### **2. Mise à Jour Workflow Uniquement** ⚡
+#### **2. Déploiement Développement** 🛠️
 ```bash
+git push origin develop  # → Déclenche le déploiement en DÉVELOPPEMENT
+```
+**Actions automatiques :**
+- 🔍 Validation Bicep  
+- 🏗️ Déploiement infrastructure DÉVELOPPEMENT
+- 🧪 Tests post-déploiement
+- 📊 Rapport de déploiement
+
+#### **3. Mise à Jour Workflow Uniquement** ⚡
+```bash
+# Sur n'importe quelle branche - met à jour seulement le workflow
 git push origin develop  # → Déclenche la mise à jour workflow
 ```
 **Actions automatiques :**

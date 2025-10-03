@@ -103,7 +103,7 @@ jobs:
   deploy-prod:
     runs-on: ubuntu-latest
     name: Deploy to Production
-    needs: [validate, deploy-dev]
+    needs: validate
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod')
     environment: production
     
@@ -126,9 +126,7 @@ jobs:
         subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         resourceGroupName: ${{ env.AZURE_RESOURCE_GROUP_PROD }}
         template: ./infra/main.bicep
-        parameters: |
-          logicAppName=logicapp-webhook-prod
-          environment=prod
+        parameters: ./infra/main.prod.bicepparam
         failOnStdErr: false
     
     - name: Test Production Logic App
