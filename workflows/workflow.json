@@ -28,11 +28,12 @@
     "Log_Request": {
       "type": "Compose",
       "inputs": {
-        "requestId": "@workflow().run.name",
+        "requestId": "@concat('req-', formatDateTime(utcNow(), 'yyyyMMddHHmmss'), '-', take(guid(), 8))",
         "timestamp": "@utcNow()",
         "triggerBody": "@triggerBody()",
-        "clientIP": "@workflow().run.correlation.clientId",
-        "workflowName": "@workflow().name"
+        "clientIP": "@coalesce(triggerOutputs()?['headers']?['X-Forwarded-For'], triggerOutputs()?['headers']?['X-Real-IP'], 'unknown')",
+        "workflowName": "@workflow().name",
+        "runId": "@workflow().run.name"
       }
     },
     "Validate_Input": {
