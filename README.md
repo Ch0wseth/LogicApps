@@ -42,10 +42,12 @@ LogicApps/
 ├── 📁 .github/workflows/           # 🔄 Pipeline CI/CD
 │   ├── deploy.yml                  # Déploiement infrastructure complète
 │   └── update-workflow.yml         # Mise à jour workflow uniquement
+├── 📁 infra/                       # �️ Infrastructure Bicep
+│   ├── main.bicep                  # Template principal
+│   ├── main.dev.bicepparam         # Paramètres développement
+│   └── main.prod.bicepparam        # Paramètres production
 ├── 📁 workflows/                   # 🎯 Définitions workflow
 │   └── workflow.json              # Logic App workflow v2.0
-├── 📄 main.bicep                  # 🏗️ Infrastructure as Code
-├── 📄 main.dev.bicepparam         # ⚙️ Paramètres développement
 └── 📄 README.md                   # 📖 Documentation complète
 ```
 
@@ -77,13 +79,19 @@ git push origin develop  # → Déclenche le déploiement en DÉVELOPPEMENT
 
 #### **3. Mise à Jour Workflow Uniquement** ⚡
 ```bash
-# Sur n'importe quelle branche - met à jour seulement le workflow
-git push origin develop  # → Déclenche la mise à jour workflow
+# Mise à jour workflow DEV
+git push origin develop  # → Met à jour workflow DEV uniquement
+
+# Mise à jour workflow PROD
+git push origin main     # → Met à jour workflow PROD uniquement
+
+# Note: Se déclenche automatiquement quand workflows/workflow.json est modifié
 ```
 **Actions automatiques :**
 - ✅ Validation JSON workflow
+- 🔍 Vérification état Logic App
 - 🔄 Mise à jour workflow via Azure CLI
-- 🧪 Tests des 4 actions (ping, echo, timestamp, info)
+- 🧪 Tests avec retry automatique (5 actions: default, ping, echo, timestamp, info)
 - 📈 Validation du logging et de la validation
 
 ### **Déploiement Manuel** 🔧
@@ -92,11 +100,17 @@ git push origin develop  # → Déclenche la mise à jour workflow
 az login
 az account set --subscription "your-subscription-id"
 
-# Déploiement infrastructure
+# Déploiement infrastructure DEV
 az deployment group create \
   --resource-group "rg-logicapp-dev" \
-  --template-file main.bicep \
-  --parameters main.dev.bicepparam
+  --template-file infra/main.bicep \
+  --parameters infra/main.dev.bicepparam
+
+# Déploiement infrastructure PROD
+az deployment group create \
+  --resource-group "rg-logicapp-prod" \
+  --template-file infra/main.bicep \
+  --parameters infra/main.prod.bicepparam
 ```
 
 ---
@@ -146,11 +160,12 @@ az deployment group create \
 
 #### **📊 Logging Automatique DevOps**
 Chaque requête est automatiquement loggée avec :
-- `requestId` : Identifiant unique pour traçabilité
-- `timestamp` : Horodatage pour audit
-- `clientIP` : IP client pour sécurité
-- `triggerBody` : Corps complet pour debugging
-- `workflowName` : Contexte workflow
+- `requestId` : Identifiant unique pour traçabilité (format: req-YYYYMMDDHHMMSS-xxxxxxxx)
+- `timestamp` : Horodatage UTC pour audit
+- `clientIP` : IP client via headers X-Forwarded-For/X-Real-IP ou 'unknown'
+- `triggerBody` : Corps complet de la requête pour debugging
+- `workflowName` : Nom du workflow pour contexte
+- `runId` : ID d'exécution du workflow
 
 #### **✅ Validation des Inputs**
 Validation automatique pour qualité :
@@ -199,6 +214,13 @@ HTTP Response (avec logging + validation)
 az rest --method post \
   --url "https://management.azure.com/.../listCallbackUrl?api-version=2016-06-01" \
   --query "value"
+
+# Tests des nouvelles actions v2.0
+curl -X POST "$LOGIC_APP_URL" -H "Content-Type: application/json" -d '{"action":"timestamp"}'
+curl -X POST "$LOGIC_APP_URL" -H "Content-Type: application/json" -d '{"action":"info"}'
+
+# Test du logging automatique
+curl -X POST "$LOGIC_APP_URL" -H "Content-Type: application/json" -d '{"message":"test devops"}'
 
 # Test des nouvelles actions v2.0
 curl -X POST "$LOGIC_APP_URL" -H "Content-Type: application/json" -d '{"action":"timestamp"}'
@@ -373,7 +395,33 @@ Cette évolution illustre les **principes DevOps** :
 
 ---
 
-## 🔄 Guide - Modifier le Workflow Logic App
+## �️ Corrections et Améliorations Récentes
+
+### **✅ Corrections Apportées (Octobre 2025)**
+
+#### **Pipeline Deployment**
+- ❌ **Problème** : Job `deploy-dev` skippé sur branche `main`
+- ✅ **Solution** : Suppression dépendance entre jobs `deploy-dev` et `deploy-prod`
+- 🎯 **Résultat** : Déploiement PROD indépendant sur branche `main`
+
+#### **Workflow Update Pipeline**
+- ❌ **Problème** : Erreurs 502 lors des tests production
+- ✅ **Solution** : Temps d'attente augmentés (60s), retry automatique, vérification statut Logic App
+- 🎯 **Résultat** : Tests robustes avec retry sur 3 tentatives
+
+#### **Template Language Expression**
+- ❌ **Problème** : `workflow().run.correlation.clientId` invalide
+- ✅ **Solution** : Utilisation correcte des headers HTTP
+- 🎯 **Résultat** : Logging clientIP fonctionnel
+
+#### **Structure Projet**
+- ✅ **Ajout** : Fichier `infra/main.prod.bicepparam` pour cohérence
+- ✅ **Nettoyage** : Suppression fichiers .md redondants
+- 🎯 **Résultat** : Documentation centralisée dans README unique
+
+---
+
+## �🔄 Guide - Modifier le Workflow Logic App
 
 ### 🎯 **Objectif DevOps**
 Modifier le workflow de ta Logic App **sans redéployer l'infrastructure complète** - principe fondamental du **Continuous Deployment**.
@@ -493,9 +541,11 @@ curl -X POST "$LOGIC_APP_URL" -d '{"action":"info"}' -H "Content-Type: applicati
 ## 🏆 Résultats DevOps
 
 ### **📊 Métriques de Performance**
-- **Déploiement infrastructure** : ~10 minutes automatisé
-- **Mise à jour workflow** : ~2 minutes automatisé  
-- **Tests automatiques** : 4 actions testées à chaque déploiement
+- **Déploiement infrastructure** : ~10 minutes automatisé (DEV et PROD séparés)
+- **Mise à jour workflow** : ~3-4 minutes automatisé (avec retry et vérifications)
+- **Tests automatiques** : 5 actions testées (default, ping, echo, timestamp, info)
+- **Retry automatique** : 3 tentatives avec backoff de 30s
+- **Temps d'attente** : 45s DEV, 60s PROD pour stabilité
 - **Rollback** : Instantané via Git revert
 
 ### **🎯 Bénéfices Obtenus**
@@ -565,6 +615,37 @@ Tout est **versioné et reproductible** :
 
 ---
 
-**🎉 Logic App DevOps - Une démonstration complète des meilleures pratiques DevOps avec Azure !**
+---
+
+## 📋 Changelog
+
+### **v2.0 (Octobre 2025) - Évolution Majeure** 🚀
+- ✅ **Workflow Logic App v2.0** avec 4 actions (ping, echo, timestamp, info)
+- ✅ **Logging automatique** avec requestId, clientIP, et métadonnées
+- ✅ **Validation des inputs** avec règles métier
+- ✅ **Architecture robuste** avec étapes de contrôle
+- ✅ **Tests automatiques** avec retry et gestion d'erreurs
+- ✅ **Pipeline amélioré** avec jobs indépendants DEV/PROD
+- ✅ **Documentation consolidée** dans README unique
+- ✅ **Fichiers paramètres** pour DEV et PROD
+- ✅ **Corrections expressions** Template Language
+
+### **v1.0 - Version Initiale** �️
+- ✅ **Infrastructure as Code** avec Bicep
+- ✅ **Pipeline GitHub Actions** basique
+- ✅ **Monitoring** avec Log Analytics et Application Insights
+- ✅ **Workflow Logic App** avec 2 actions (ping, echo)
+
+---
+
+**�🎉 Logic App DevOps - Une démonstration complète des meilleures pratiques DevOps avec Azure !**
 
 > *Infrastructure as Code + CI/CD + Monitoring + Évolution Continue = DevOps Excellence* 🚀
+
+### 📞 **Support et Contribution**
+- 🐛 **Issues** : [GitHub Issues](https://github.com/Ch0wseth/LogicApps/issues)
+- 📖 **Documentation** : Ce README contient toute la documentation
+- 🔄 **Évolutions** : Les nouvelles fonctionnalités sont documentées dans les commits
+- ⭐ **Star le projet** si il vous a aidé !
+
+**Dernière mise à jour** : Octobre 2025 - v2.0 avec corrections et améliorations
