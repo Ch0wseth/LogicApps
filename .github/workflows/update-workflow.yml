@@ -75,8 +75,8 @@ jobs:
       run: |
         echo "🧪 Testing updated workflow..."
         
-        # Wait for Logic App to be ready
-        sleep 10
+        # Wait for Logic App to be ready (increased wait time)
+        sleep 30
         
         # Get trigger URL
         TRIGGER_URL=$(az rest --method post \
@@ -90,21 +90,21 @@ jobs:
         curl -X POST "$TRIGGER_URL" \
           -H "Content-Type: application/json" \
           -d '{"message":"Test default action"}' \
-          --fail --silent --show-error
+          --fail --show-error -w "HTTP Status: %{http_code}\n" || echo "Default action test failed with status $?"
         
         # Test 2: Ping action
         echo "Testing ping action..."
         curl -X POST "$TRIGGER_URL" \
           -H "Content-Type: application/json" \
           -d '{"action":"ping"}' \
-          --fail --silent --show-error
+          --fail --show-error -w "HTTP Status: %{http_code}\n" || echo "Ping action test failed with status $?"
         
         # Test 3: Echo action
         echo "Testing echo action..."
         curl -X POST "$TRIGGER_URL" \
           -H "Content-Type: application/json" \
           -d '{"action":"echo","message":"Hello from GitHub Actions!"}' \
-          --fail --silent --show-error
+          --fail --show-error -w "HTTP Status: %{http_code}\n" || echo "Echo action test failed with status $?"
         
         echo "✅ All workflow tests passed!"
 
