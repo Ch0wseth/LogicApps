@@ -12,10 +12,12 @@
           "type": "object",
           "properties": {
             "message": {
-              "type": "string"
+              "type": "string",
+              "description": "Message to process"
             },
             "action": {
-              "type": "string"
+              "type": "string",
+              "description": "Action to perform (ping, echo, or default)"
             }
           }
         }
