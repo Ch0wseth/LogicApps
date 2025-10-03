@@ -120,11 +120,10 @@ resource logicApp 'Microsoft.Logic/workflows@2019-05-01' = {
             statusCode: 200
             body: {
               message: 'Hello from Logic App!'
-              timestamp: '@{utcNow()}'
-              inputMessage: '@{triggerBody()?[\'message\']}'
+              timestamp: '@utcNow()'
+              inputMessage: '@triggerBody()?[\'message\']'
             }
           }
-          runAfter: {}
         }
       }
       outputs: {}
@@ -221,3 +220,4 @@ output applicationInsightsInstrumentationKey string = applicationInsights.proper
 
 @description('ID de connexion Application Insights')
 output applicationInsightsConnectionString string = applicationInsights.properties.ConnectionString
+

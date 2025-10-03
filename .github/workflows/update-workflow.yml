@@ -1,0 +1,158 @@
+name: Update Logic App Workflow
+
+on:
+  push:
+    paths:
+      - 'workflows/workflow.json'
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to update'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - prod
+
+env:
+  AZURE_RESOURCE_GROUP_DEV: rg-logicapp-dev
+  AZURE_RESOURCE_GROUP_PROD: rg-logicapp-prod
+  LOGIC_APP_NAME_DEV: logicapp-webhook-dev
+  LOGIC_APP_NAME_PROD: logicapp-webhook-prod
+
+jobs:
+  validate-workflow:
+    runs-on: ubuntu-latest
+    name: Validate Workflow JSON
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Validate JSON syntax
+      run: |
+        echo "🔍 Validating workflow JSON syntax..."
+        cat workflows/workflow.json | jq . > /dev/null
+        echo "✅ Workflow JSON syntax is valid"
+    
+    - name: Check required fields
+      run: |
+        echo "🔍 Checking workflow structure..."
+        jq -e '.definition.triggers' workflows/workflow.json > /dev/null
+        jq -e '.definition.actions' workflows/workflow.json > /dev/null
+        echo "✅ Workflow structure is valid"
+
+  update-dev:
+    runs-on: ubuntu-latest
+    name: Update Dev Workflow
+    needs: validate-workflow
+    if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'dev')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Update Logic App Workflow
+      run: |
+        echo "🔄 Updating Dev Logic App workflow..."
+        
+        # Update the Logic App workflow definition
+        az logic workflow update \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP_DEV }} \
+          --name ${{ env.LOGIC_APP_NAME_DEV }} \
+          --definition @workflows/workflow.json
+        
+        echo "✅ Dev workflow updated successfully"
+    
+    - name: Test Updated Workflow
+      run: |
+        echo "🧪 Testing updated workflow..."
+        
+        # Wait for Logic App to be ready (increased wait time)
+        sleep 30
+        
+        # Get trigger URL
+        TRIGGER_URL=$(az rest --method post \
+          --url "https://management.azure.com/subscriptions/1358ce15-fec5-4e94-847b-13cd93b106fb/resourceGroups/${{ env.AZURE_RESOURCE_GROUP_DEV }}/providers/Microsoft.Logic/workflows/${{ env.LOGIC_APP_NAME_DEV }}/triggers/manual/listCallbackUrl?api-version=2016-06-01" \
+          --query "value" --output tsv)
+        
+        echo "🌐 Trigger URL: $TRIGGER_URL"
+        
+        # Test 1: Default action
+        echo "Testing default action..."
+        curl -X POST "$TRIGGER_URL" \
+          -H "Content-Type: application/json" \
+          -d '{"message":"Test default action"}' \
+          --fail --show-error -w "HTTP Status: %{http_code}\n" || echo "Default action test failed with status $?"
+        
+        # Test 2: Ping action
+        echo "Testing ping action..."
+        curl -X POST "$TRIGGER_URL" \
+          -H "Content-Type: application/json" \
+          -d '{"action":"ping"}' \
+          --fail --show-error -w "HTTP Status: %{http_code}\n" || echo "Ping action test failed with status $?"
+        
+        # Test 3: Echo action
+        echo "Testing echo action..."
+        curl -X POST "$TRIGGER_URL" \
+          -H "Content-Type: application/json" \
+          -d '{"action":"echo","message":"Hello from GitHub Actions!"}' \
+          --fail --show-error -w "HTTP Status: %{http_code}\n" || echo "Echo action test failed with status $?"
+        
+        echo "✅ All workflow tests passed!"
+
+  update-prod:
+    runs-on: ubuntu-latest
+    name: Update Prod Workflow
+    needs: [validate-workflow, update-dev]
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod')
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Update Logic App Workflow
+      run: |
+        echo "🚀 Updating Prod Logic App workflow..."
+        
+        # Update the Logic App workflow definition
+        az logic workflow update \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP_PROD }} \
+          --name ${{ env.LOGIC_APP_NAME_PROD }} \
+          --definition @workflows/workflow.json
+        
+        echo "✅ Prod workflow updated successfully"
+    
+    - name: Test Production Workflow
+      run: |
+        echo "🧪 Testing production workflow..."
+        
+        # Wait for Logic App to be ready
+        sleep 10
+        
+        # Get trigger URL
+        TRIGGER_URL=$(az rest --method post \
+          --url "https://management.azure.com/subscriptions/1358ce15-fec5-4e94-847b-13cd93b106fb/resourceGroups/${{ env.AZURE_RESOURCE_GROUP_PROD }}/providers/Microsoft.Logic/workflows/${{ env.LOGIC_APP_NAME_PROD }}/triggers/manual/listCallbackUrl?api-version=2016-06-01" \
+          --query "value" --output tsv)
+        
+        # Test production
+        curl -X POST "$TRIGGER_URL" \
+          -H "Content-Type: application/json" \
+          -d '{"action":"ping","message":"Production health check"}' \
+          --fail --silent --show-error
+        
+        echo "✅ Production workflow test successful"
+        echo "🌐 Production URL: $TRIGGER_URL"

@@ -1,0 +1,174 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {},
+  "triggers": {
+    "manual": {
+      "type": "Request",
+      "kind": "Http",
+      "inputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string",
+              "description": "Message to process"
+            },
+            "action": {
+              "type": "string",
+              "description": "Action to perform (ping, echo, or default)"
+            }
+          }
+        }
+      }
+    }
+  },
+  "actions": {
+    "Log_Request": {
+      "type": "Compose",
+      "inputs": {
+        "requestId": "@workflow().run.name",
+        "timestamp": "@utcNow()",
+        "triggerBody": "@triggerBody()",
+        "clientIP": "@workflow().run.correlation.clientId",
+        "workflowName": "@workflow().name"
+      }
+    },
+    "Validate_Input": {
+      "type": "Compose",
+      "inputs": {
+        "hasMessage": "@not(empty(triggerBody()?['message']))",
+        "hasAction": "@not(empty(triggerBody()?['action']))",
+        "messageLength": "@length(coalesce(triggerBody()?['message'], ''))",
+        "isValidRequest": "@and(not(empty(triggerBody())), or(not(empty(triggerBody()?['message'])), not(empty(triggerBody()?['action']))))"
+      },
+      "runAfter": {
+        "Log_Request": ["Succeeded"]
+      }
+    },
+    "Switch_Action": {
+      "type": "Switch",
+      "expression": "@triggerBody()?['action']",
+      "runAfter": {
+        "Validate_Input": ["Succeeded"]
+      },
+      "cases": {
+        "ping": {
+          "case": "ping",
+          "actions": {
+            "Ping_Response": {
+              "type": "Response",
+              "kind": "Http",
+              "inputs": {
+                "statusCode": 200,
+                "body": {
+                  "status": "pong",
+                  "timestamp": "@utcNow()",
+                  "message": "Logic App is alive!",
+                  "version": "1.0"
+                }
+              }
+            }
+          }
+        },
+        "timestamp": {
+          "case": "timestamp",
+          "actions": {
+            "Timestamp_Response": {
+              "type": "Response",
+              "kind": "Http", 
+              "inputs": {
+                "statusCode": 200,
+                "body": {
+                  "status": "timestamp",
+                  "currentTime": "@utcNow()",
+                  "timezone": "UTC",
+                  "unixTimestamp": "@div(sub(ticks(utcNow()), ticks('1970-01-01T00:00:00.000Z')), 10000000)",
+                  "formatted": {
+                    "iso": "@formatDateTime(utcNow(), 'yyyy-MM-ddTHH:mm:ssZ')",
+                    "readable": "@formatDateTime(utcNow(), 'dddd, MMMM dd, yyyy at HH:mm:ss')",
+                    "date": "@formatDateTime(utcNow(), 'yyyy-MM-dd')",
+                    "time": "@formatDateTime(utcNow(), 'HH:mm:ss')"
+                  },
+                  "requestInfo": "@outputs('Log_Request')"
+                }
+              }
+            }
+          }
+        },
+        "info": {
+          "case": "info",
+          "actions": {
+            "Info_Response": {
+              "type": "Response",
+              "kind": "Http",
+              "inputs": {
+                "statusCode": 200,
+                "body": {
+                  "status": "info",
+                  "version": "2.0",
+                  "workflowInfo": {
+                    "name": "@workflow().name",
+                    "runId": "@workflow().run.name",
+                    "location": "France Central"
+                  },
+                  "availableActions": ["ping", "echo", "timestamp", "info"],
+                  "validation": "@outputs('Validate_Input')",
+                  "requestLog": "@outputs('Log_Request')",
+                  "examples": {
+                    "ping": {"action": "ping"},
+                    "echo": {"action": "echo", "message": "your message"},
+                    "timestamp": {"action": "timestamp"},
+                    "info": {"action": "info"}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "echo": {
+          "case": "echo",
+          "actions": {
+            "Echo_Response": {
+              "type": "Response",
+              "kind": "Http",
+              "inputs": {
+                "statusCode": 200,
+                "body": {
+                  "status": "echo",
+                  "timestamp": "@utcNow()",
+                  "original_message": "@triggerBody()?['message']",
+                  "echoed_message": "@concat('ECHO: ', triggerBody()?['message'])"
+                }
+              }
+            }
+          }
+        }
+      },
+      "default": {
+        "actions": {
+          "Default_Response": {
+            "type": "Response",
+            "kind": "Http",
+            "inputs": {
+              "statusCode": 200,
+              "body": {
+                "message": "Welcome to Logic App v2.0!",
+                "timestamp": "@utcNow()",
+                "inputMessage": "@triggerBody()?['message']",
+                "version": "2.0",
+                "availableActions": ["ping", "echo", "timestamp", "info"],
+                "usage": "Send {\"action\":\"actionName\"} - Try ping, echo, timestamp, or info",
+                "validation": "@outputs('Validate_Input')",
+                "requestInfo": "@outputs('Log_Request')"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "outputs": {}
+  }
+}

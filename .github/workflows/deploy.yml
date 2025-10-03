@@ -1,0 +1,153 @@
+name: Deploy Logic App Infrastructure
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - prod
+
+env:
+  AZURE_RESOURCE_GROUP_DEV: rg-logicapp-dev
+  AZURE_RESOURCE_GROUP_PROD: rg-logicapp-prod
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    name: Validate Bicep Template
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Bicep CLI
+      uses: azure/bicep-build-action@v1.0.1
+      with:
+        bicepFilePath: ./infra/main.bicep
+    
+    - name: Validate Bicep template
+      run: |
+        echo "✅ Bicep template validation successful"
+
+  deploy-dev:
+    runs-on: ubuntu-latest
+    name: Deploy to Development
+    needs: validate
+    if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'dev')
+    environment: development
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Create Resource Group
+      run: |
+        az group create --name ${{ env.AZURE_RESOURCE_GROUP_DEV }} --location "West Europe"
+    
+    - name: Deploy Infrastructure
+      uses: azure/arm-deploy@v1
+      with:
+        subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        resourceGroupName: ${{ env.AZURE_RESOURCE_GROUP_DEV }}
+        template: ./infra/main.bicep
+        parameters: ./infra/main.dev.bicepparam
+        failOnStdErr: false
+    
+    - name: Get Logic App Trigger URL
+      id: get-url
+      run: |
+        # Attendre que la Logic App soit prête
+        sleep 30
+        
+        # Récupérer l'URL du trigger
+        TRIGGER_URL=$(az rest --method post \
+          --url "https://management.azure.com/subscriptions/1358ce15-fec5-4e94-847b-13cd93b106fb/resourceGroups/${{ env.AZURE_RESOURCE_GROUP_DEV }}/providers/Microsoft.Logic/workflows/logicapp-webhook-dev/triggers/manual/listCallbackUrl?api-version=2016-06-01" \
+          --query "value" --output tsv)
+        
+        echo "trigger-url=$TRIGGER_URL" >> $GITHUB_OUTPUT
+        echo "🌐 Logic App Trigger URL: $TRIGGER_URL"
+    
+    - name: Test Logic App
+      run: |
+        echo "🧪 Testing Logic App deployment..."
+        
+        # Test 1: Message valide
+        curl -X POST "${{ steps.get-url.outputs.trigger-url }}" \
+          -H "Content-Type: application/json" \
+          -d '{"message":"Hello from GitHub Actions!"}' \
+          --fail --silent --show-error
+        
+        echo "✅ Logic App test successful"
+    
+    - name: Display Deployment Summary
+      run: |
+        echo "🎉 Development deployment completed!"
+        echo "Resource Group: ${{ env.AZURE_RESOURCE_GROUP_DEV }}"
+        echo "Logic App: logicapp-webhook-dev"
+        echo "Trigger URL: ${{ steps.get-url.outputs.trigger-url }}"
+
+  deploy-prod:
+    runs-on: ubuntu-latest
+    name: Deploy to Production
+    needs: [validate, deploy-dev]
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod')
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Create Resource Group
+      run: |
+        az group create --name ${{ env.AZURE_RESOURCE_GROUP_PROD }} --location "West Europe"
+    
+    - name: Deploy Infrastructure
+      uses: azure/arm-deploy@v1
+      with:
+        subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        resourceGroupName: ${{ env.AZURE_RESOURCE_GROUP_PROD }}
+        template: ./infra/main.bicep
+        parameters: |
+          logicAppName=logicapp-webhook-prod
+          environment=prod
+        failOnStdErr: false
+    
+    - name: Test Production Logic App
+      run: |
+        echo "🚀 Testing Production Logic App..."
+        
+        # Attendre que la Logic App soit prête
+        sleep 30
+        
+        # Récupérer l'URL du trigger
+        TRIGGER_URL=$(az rest --method post \
+          --url "https://management.azure.com/subscriptions/1358ce15-fec5-4e94-847b-13cd93b106fb/resourceGroups/${{ env.AZURE_RESOURCE_GROUP_PROD }}/providers/Microsoft.Logic/workflows/logicapp-webhook-prod/triggers/manual/listCallbackUrl?api-version=2016-06-01" \
+          --query "value" --output tsv)
+        
+        # Test de production
+        curl -X POST "$TRIGGER_URL" \
+          -H "Content-Type: application/json" \
+          -d '{"message":"Production Health Check"}' \
+          --fail --silent --show-error
+        
+        echo "✅ Production deployment successful"
+        echo "🌐 Production URL: $TRIGGER_URL"

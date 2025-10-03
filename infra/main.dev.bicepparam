@@ -2,7 +2,7 @@
 using './main.bicep'
 
 // Paramètres spécifiques à l'environnement de développement
-param logicAppName = 'logicapp-demo-dev'
+param logicAppName = 'logicapp-webhook-dev'
 param environment = 'dev'
 param location = 'France Central'
 
