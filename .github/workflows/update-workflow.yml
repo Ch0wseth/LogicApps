@@ -76,7 +76,8 @@ jobs:
         echo "🧪 Testing updated workflow..."
         
         # Wait for Logic App to be ready (increased wait time)
-        sleep 30
+        echo "⏳ Waiting for Logic App to be ready..."
+        sleep 45
         
         # Get trigger URL
         TRIGGER_URL=$(az rest --method post \
@@ -150,30 +151,77 @@ jobs:
         
         echo "✅ Prod workflow updated successfully"
     
+    - name: Verify Logic App Status
+      run: |
+        echo "🔍 Verifying Logic App status..."
+        
+        # Check Logic App status
+        STATUS=$(az logic workflow show \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP_PROD }} \
+          --name ${{ env.LOGIC_APP_NAME_PROD }} \
+          --query "state" --output tsv)
+        
+        echo "Logic App Status: $STATUS"
+        
+        if [ "$STATUS" != "Enabled" ]; then
+          echo "⚠️ Logic App is not enabled, attempting to enable..."
+          az logic workflow update \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP_PROD }} \
+            --name ${{ env.LOGIC_APP_NAME_PROD }} \
+            --state Enabled
+          echo "✅ Logic App enabled"
+        else
+          echo "✅ Logic App is already enabled"
+        fi
+    
     - name: Test Production Workflow
       run: |
         echo "🧪 Testing production workflow..."
         
-        # Wait for Logic App to be ready
-        sleep 10
+        # Wait for Logic App to be ready (increased wait time for production)
+        echo "⏳ Waiting for Logic App to be ready..."
+        sleep 60
         
         # Get trigger URL
+        echo "🔗 Getting trigger URL..."
         TRIGGER_URL=$(az rest --method post \
           --url "https://management.azure.com/subscriptions/1358ce15-fec5-4e94-847b-13cd93b106fb/resourceGroups/${{ env.AZURE_RESOURCE_GROUP_PROD }}/providers/Microsoft.Logic/workflows/${{ env.LOGIC_APP_NAME_PROD }}/triggers/manual/listCallbackUrl?api-version=2016-06-01" \
           --query "value" --output tsv)
         
-        # Test production workflow v2.0
-        echo "Testing production ping action..."
-        curl -X POST "$TRIGGER_URL" \
-          -H "Content-Type: application/json" \
-          -d '{"action":"ping"}' \
-          --fail --silent --show-error
-        
-        echo "Testing production timestamp action..."
-        curl -X POST "$TRIGGER_URL" \
-          -H "Content-Type: application/json" \
-          -d '{"action":"timestamp"}' \
-          --fail --silent --show-error
-        
-        echo "✅ Production workflow v2.0 test successful"
         echo "🌐 Production URL: $TRIGGER_URL"
+        
+        # Function to test with retry
+        test_with_retry() {
+          local action=$1
+          local data=$2
+          local max_retries=3
+          local retry_count=0
+          
+          while [ $retry_count -lt $max_retries ]; do
+            echo "Testing $action (attempt $((retry_count + 1))/$max_retries)..."
+            
+            if curl -X POST "$TRIGGER_URL" \
+              -H "Content-Type: application/json" \
+              -d "$data" \
+              --fail --silent --show-error -w "HTTP Status: %{http_code}\n"; then
+              echo "✅ $action test successful"
+              return 0
+            else
+              echo "❌ $action test failed (HTTP $?)"
+              retry_count=$((retry_count + 1))
+              if [ $retry_count -lt $max_retries ]; then
+                echo "⏳ Waiting 30 seconds before retry..."
+                sleep 30
+              fi
+            fi
+          done
+          
+          echo "⚠️ $action test failed after $max_retries attempts"
+          return 1
+        }
+        
+        # Test production workflow v2.0 with retry logic
+        test_with_retry "ping" '{"action":"ping"}'
+        test_with_retry "timestamp" '{"action":"timestamp"}'
+        
+        echo "✅ Production workflow v2.0 testing completed"
