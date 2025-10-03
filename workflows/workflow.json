@@ -1,0 +1,87 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "triggers": {
+    "manual": {
+      "type": "Request",
+      "kind": "Http",
+      "inputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "action": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "actions": {
+    "Switch_Action": {
+      "type": "Switch",
+      "expression": "@triggerBody()?['action']",
+      "cases": {
+        "ping": {
+          "case": "ping",
+          "actions": {
+            "Ping_Response": {
+              "type": "Response",
+              "kind": "Http",
+              "inputs": {
+                "statusCode": 200,
+                "body": {
+                  "status": "pong",
+                  "timestamp": "@utcNow()",
+                  "message": "Logic App is alive!",
+                  "version": "1.0"
+                }
+              }
+            }
+          }
+        },
+        "echo": {
+          "case": "echo",
+          "actions": {
+            "Echo_Response": {
+              "type": "Response",
+              "kind": "Http",
+              "inputs": {
+                "statusCode": 200,
+                "body": {
+                  "status": "echo",
+                  "timestamp": "@utcNow()",
+                  "original_message": "@triggerBody()?['message']",
+                  "echoed_message": "@concat('ECHO: ', triggerBody()?['message'])"
+                }
+              }
+            }
+          }
+        }
+      },
+      "default": {
+        "actions": {
+          "Default_Response": {
+            "type": "Response",
+            "kind": "Http",
+            "inputs": {
+              "statusCode": 200,
+              "body": {
+                "message": "Hello from Logic App!",
+                "timestamp": "@utcNow()",
+                "inputMessage": "@triggerBody()?['message']",
+                "availableActions": ["ping", "echo"],
+                "usage": "Send {\"action\":\"ping\"} or {\"action\":\"echo\", \"message\":\"your message\"}"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "outputs": {}
+}
