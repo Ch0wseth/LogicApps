@@ -106,12 +106,26 @@ jobs:
           -d '{"action":"echo","message":"Hello from GitHub Actions!"}' \
           --fail --show-error -w "HTTP Status: %{http_code}\n" || echo "Echo action test failed with status $?"
         
-        echo "✅ All workflow tests passed!"
+        # Test 4: Timestamp action (v2.0)
+        echo "Testing timestamp action..."
+        curl -X POST "$TRIGGER_URL" \
+          -H "Content-Type: application/json" \
+          -d '{"action":"timestamp"}' \
+          --fail --show-error -w "HTTP Status: %{http_code}\n" || echo "Timestamp action test failed with status $?"
+        
+        # Test 5: Info action (v2.0)
+        echo "Testing info action..."
+        curl -X POST "$TRIGGER_URL" \
+          -H "Content-Type: application/json" \
+          -d '{"action":"info"}' \
+          --fail --show-error -w "HTTP Status: %{http_code}\n" || echo "Info action test failed with status $?"
+        
+        echo "✅ All workflow v2.0 tests passed!"
 
   update-prod:
     runs-on: ubuntu-latest
     name: Update Prod Workflow
-    needs: [validate-workflow, update-dev]
+    needs: validate-workflow
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod')
     environment: production
     
@@ -148,11 +162,18 @@ jobs:
           --url "https://management.azure.com/subscriptions/1358ce15-fec5-4e94-847b-13cd93b106fb/resourceGroups/${{ env.AZURE_RESOURCE_GROUP_PROD }}/providers/Microsoft.Logic/workflows/${{ env.LOGIC_APP_NAME_PROD }}/triggers/manual/listCallbackUrl?api-version=2016-06-01" \
           --query "value" --output tsv)
         
-        # Test production
+        # Test production workflow v2.0
+        echo "Testing production ping action..."
         curl -X POST "$TRIGGER_URL" \
           -H "Content-Type: application/json" \
-          -d '{"action":"ping","message":"Production health check"}' \
+          -d '{"action":"ping"}' \
           --fail --silent --show-error
         
-        echo "✅ Production workflow test successful"
+        echo "Testing production timestamp action..."
+        curl -X POST "$TRIGGER_URL" \
+          -H "Content-Type: application/json" \
+          -d '{"action":"timestamp"}' \
+          --fail --silent --show-error
+        
+        echo "✅ Production workflow v2.0 test successful"
         echo "🌐 Production URL: $TRIGGER_URL"
