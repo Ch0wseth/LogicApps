@@ -406,13 +406,34 @@ curl -X POST "$LOGIC_APP_URL" -H "Content-Type: application/json" -d '{"message"
 
 ### **1. Setup Initial** (5 minutes)
 ```bash
-# Clone et configuration
+# Clone du projet
 git clone https://github.com/Ch0wseth/LogicApps.git
 cd LogicApps
-
-# Configuration des secrets GitHub
-# AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
 ```
+
+#### **Configuration Azure & GitHub Actions**
+
+##### **Étape 1: Créer le Service Principal Azure**
+```bash
+# Se connecter à Azure
+az login
+az account set --subscription "YOUR-SUBSCRIPTION-ID"
+
+# Créer le Service Principal
+az ad sp create-for-rbac --name "sp-logicapp-github-actions" \
+  --role "Contributor" \
+  --scopes "/subscriptions/YOUR-SUBSCRIPTION-ID" \
+  --sdk-auth
+```
+
+##### **Étape 2: Configurer les Secrets GitHub**
+Va dans **GitHub → Settings → Secrets and variables → Actions** et ajoute :
+
+| Secret | Valeur |
+|--------|--------|
+| `AZURE_CLIENT_ID` | clientId du Service Principal |
+| `AZURE_TENANT_ID` | tenantId du Service Principal |
+| `AZURE_SUBSCRIPTION_ID` | ID de ta subscription Azure |
 
 ### **2. Déploiement Infrastructure** (10 minutes)
 ```bash
