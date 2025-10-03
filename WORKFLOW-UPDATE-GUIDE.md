@@ -20,7 +20,21 @@ git push origin main     # → Met à jour DEV puis PROD
 ### 3. **Le pipeline se déclenche automatiquement** ⚡
 - Valide ton JSON
 - Met à jour seulement le workflow  
-- Teste automatiquement les nouvelles fonctionnalités
+- Teste automatiquement les **4 actions v2.0** (ping, echo, timestamp, info)
+- Vérifie le logging et la validation automatique
+- Confirme que la version 2.0 fonctionne correctement
+
+## 🧪 **Test de l'évolution v2.0**
+
+```bash
+# Test des nouvelles actions après déploiement
+curl -X POST "$LOGIC_APP_URL" -H "Content-Type: application/json" -d '{"action":"timestamp"}'
+curl -X POST "$LOGIC_APP_URL" -H "Content-Type: application/json" -d '{"action":"info"}'
+
+# Vérification du logging automatique
+curl -X POST "$LOGIC_APP_URL" -H "Content-Type: application/json" -d '{"message":"test evolution"}'
+# → Doit retourner requestInfo et validation dans la réponse
+```
 
 ## 📝 Structure du workflow actuel
 
@@ -49,6 +63,113 @@ git push origin main     # → Met à jour DEV puis PROD
   "action": "ping"
 }
 ```
+**Réponse :** `"pong"`
+
+#### 3. **Action "echo"**
+```json
+{
+  "action": "echo",
+  "message": "Hello World"
+}
+```
+**Réponse :** `"Echo: Hello World"`
+
+---
+
+## 🎯 **WORKFLOW v2.0 - ÉVOLUTION MAJEURE** ⭐
+
+### ✨ Nouvelles Fonctionnalités (Octobre 2025)
+
+#### 4. **Action "timestamp"** 🆕
+```json
+{
+  "action": "timestamp"
+}
+```
+**Réponse :**
+```json
+{
+  "currentTime": "2025-10-03T14:30:00Z",
+  "timezone": "UTC",
+  "unixTimestamp": 1728048600,
+  "formatted": {
+    "iso": "2025-10-03T14:30:00Z",
+    "readable": "October 3, 2025 at 2:30 PM UTC",
+    "date": "2025-10-03",
+    "time": "14:30:00"
+  }
+}
+```
+
+#### 5. **Action "info"** 🆕
+```json
+{
+  "action": "info"
+}
+```
+**Réponse :** Métadonnées complètes du workflow avec exemples d'usage
+
+### 🔧 **Architecture v2.0**
+
+#### **Étapes de Logging et Validation**
+
+##### 1. **Log_Request** (Automatique)
+- Génère un `requestId` unique
+- Enregistre le timestamp de la requête
+- Capture l'IP client (si disponible)
+- Stocke le corps de la requête complète
+
+##### 2. **Validate_Input** (Automatique)
+- Vérifie la présence d'un message
+- Valide l'action demandée
+- Contrôle la longueur du message
+- Détermine si la requête est valide
+
+##### 3. **Switch_Action** (Amélioré)
+- **4 actions** disponibles (ping, echo, timestamp, info)
+- Réponses enrichies avec métadonnées
+- Gestion d'erreurs améliorée
+
+### 📊 **Réponse Enrichie par Défaut**
+
+Toutes les réponses incluent maintenant :
+```json
+{
+  "message": "Welcome to Logic App v2.0!",
+  "timestamp": "2025-10-03T14:30:00Z",
+  "version": "2.0",
+  "availableActions": ["ping", "echo", "timestamp", "info"],
+  "validation": {
+    "hasMessage": true,
+    "hasAction": true,
+    "messageLength": 12,
+    "isValidRequest": true
+  },
+  "requestInfo": {
+    "requestId": "req-20251003143000-abc12345",
+    "timestamp": "2025-10-03T14:30:00Z",
+    "workflowName": "logic-app-dev"
+  }
+}
+```
+
+---
+
+## 🚀 **Migration vers v2.0**
+
+### **Changements Incompatibles**
+- ⚠️ Format de réponse enrichi (nouvelles propriétés)
+- ⚠️ Étapes de logging automatique ajoutées
+- ⚠️ Validation des inputs activée
+
+### **Nouvelles Capacités**
+- ✅ 4 actions disponibles au lieu de 2
+- ✅ Logging automatique de toutes les requêtes
+- ✅ Validation des inputs avec règles métier
+- ✅ Réponses avec métadonnées complètes
+- ✅ Architecture plus robuste
+
+---
 **Réponse :**
 ```json
 {

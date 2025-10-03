@@ -55,10 +55,82 @@ az rest --method post \
   --url "https://management.azure.com/subscriptions/SUBSCRIPTION-ID/resourceGroups/rg-logicapp-dev/providers/Microsoft.Logic/workflows/logicapp-webhook-dev/triggers/manual/listCallbackUrl?api-version=2016-06-01" \
   --query "value"
 
-# Tester avec curl
+# Tester avec curl (nouvelles actions v2.0)
 curl -X POST "https://prod-xx.westeurope.logic.azure.com/..." \
   -H "Content-Type: application/json" \
-  -d '{"message":"Hello Logic App!"}'
+  -d '{"action":"timestamp"}'
+
+curl -X POST "https://prod-xx.westeurope.logic.azure.com/..." \
+  -H "Content-Type: application/json" \
+  -d '{"action":"info"}'
+```
+
+## 🎯 Workflow Logic App v2.0 - Évolution Majeure
+
+### ✨ Nouvelles Fonctionnalités (Octobre 2025)
+
+#### **4 Actions Disponibles :**
+1. **ping** - Test de connectivité
+2. **echo** - Écho de message
+3. **timestamp** ⭐ *NOUVEAU* - Informations temporelles complètes
+4. **info** ⭐ *NOUVEAU* - Métadonnées du workflow
+
+#### **Logging Automatique** 📊
+Chaque requête est automatiquement loggée avec :
+- `requestId` unique
+- `timestamp` de la requête
+- `clientIP` (si disponible)
+- Corps de la requête complet
+
+#### **Validation des Inputs** ✅
+Validation automatique :
+- Vérification de la présence du message
+- Validation de l'action demandée
+- Contrôle de la longueur du message
+- Statut de validité global
+
+### 🧪 Tests des nouvelles actions v2.0
+
+```powershell
+# Action timestamp - Retourne l'heure sous plusieurs formats
+$response = Invoke-RestMethod -Uri $triggerUrl -Method Post \
+  -Body '{"action":"timestamp"}' -ContentType "application/json"
+# Retourne: currentTime, timezone, unixTimestamp, formatted {...}
+
+# Action info - Métadonnées complètes du workflow
+$response = Invoke-RestMethod -Uri $triggerUrl -Method Post \
+  -Body '{"action":"info"}' -ContentType "application/json"
+# Retourne: workflow details, actions disponibles, exemples d'usage
+
+# Réponse enrichie par défaut (version 2.0)
+$response = Invoke-RestMethod -Uri $triggerUrl -Method Post \
+  -Body '{"message":"test"}' -ContentType "application/json"
+# Inclut maintenant: validation, requestInfo, version 2.0
+```
+
+### 📋 Exemple de réponse complète v2.0
+
+```json
+{
+  "message": "Welcome to Logic App v2.0!",
+  "timestamp": "2025-10-03T14:30:00Z",
+  "inputMessage": "test message",
+  "version": "2.0",
+  "availableActions": ["ping", "echo", "timestamp", "info"],
+  "usage": "Send {\"action\":\"actionName\"} - Try ping, echo, timestamp, or info",
+  "validation": {
+    "hasMessage": true,
+    "hasAction": false,
+    "messageLength": 12,
+    "isValidRequest": true
+  },
+  "requestInfo": {
+    "requestId": "req-20251003143000-abc12345",
+    "timestamp": "2025-10-03T14:30:00Z",
+    "triggerBody": {"message": "test message"},
+    "workflowName": "logic-app-dev"
+  }
+}
 ```
 
 ## 📊 Ce que déploie le template
