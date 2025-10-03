@@ -40,8 +40,8 @@ jobs:
     - name: Check required fields
       run: |
         echo "🔍 Checking workflow structure..."
-        jq -e '.triggers' workflows/workflow.json > /dev/null
-        jq -e '.actions' workflows/workflow.json > /dev/null
+        jq -e '.definition.triggers' workflows/workflow.json > /dev/null
+        jq -e '.definition.actions' workflows/workflow.json > /dev/null
         echo "✅ Workflow structure is valid"
 
   update-dev:
